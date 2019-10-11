@@ -83,6 +83,7 @@ class Alternator:
         self.poleSpacing = 1  # spacing of poles in mm
         self.magnetType = 'NdFeB 52 MGOe'
         # END PARAMETER LIST
+        self.testPoint = Vector(0,0)
         self.__updateDimensions()
 
 
@@ -115,6 +116,8 @@ class Alternator:
         self.alpha = self.coilPitch - self.polePitch
         self.windingFactor = cos(radians(self.alpha) / 2)
         self.coilsPerPhase = self.numStators / self.numPhases
+        # test point
+        # self.testpoint = Vector(0,0)
 
 
     def simulate(self):
@@ -146,8 +149,7 @@ class Alternator:
             femm.mi_addblocklabel(corner.x + self.coilLength / 2, corner.y + self.pcbThickness / 2)
             femm.mi_selectlabel(corner.x + self.coilLength / 2, corner.y + self.pcbThickness / 2)
             femm.mi_setblockprop(self.windingType, 1, 0, '<None>', 0, 0, self.numWindings)
-            if coil == int(self.numStators / 2):
-                self.testPoint = Vector(corner.x + self.coilLength / 2, corner.y + self.pcbThickness / 2)
+
 
         # # Upper Rotor
         for magnet in range(0, self.numPoles):
@@ -159,6 +161,8 @@ class Alternator:
                 femm.mi_setblockprop(self.magnetType, 1, 0, '<None>', 90, 0, 0)
             else:
                 femm.mi_setblockprop(self.magnetType, 1, 0, '<None>', -90, 0, 0)
+            if magnet == int(self.numPoles / 2):
+                self.testPoint = Vector(corner.x, 0 + self.pcbThickness / 2)
 
         # Lower Rotor
         for magnet in range(0, self.numPoles):
@@ -187,10 +191,10 @@ class Alternator:
         femm.mi_loadsolution()
 
         # Now, the finished input geometry can be displayed.
-        femm.mo_zoom(self.testPoint.x - 2 * self.coilLength, self.testPoint.y - self.coilLength,
-                     self.testPoint.x + 2 * self.coilLength,
-                     self.testPoint.y + self.coilLength)
-        femm.mo_showdensityplot(1, 0, 1, 0, 'mag')
+        # femm.mo_zoom(self.testPoint.x - 2 * self.coilLength, self.testPoint.y - self.coilLength,
+        #              self.testPoint.x + 2 * self.coilLength,
+        #              self.testPoint.y + self.coilLength)
+        # femm.mo_showdensityplot(1, 0, 1, 0, 'mag')
 
         self.fluxDensity = self.getFlux()
 
@@ -200,12 +204,21 @@ class Alternator:
 
         for i in range(200):
             offset = i * self.numPoles * self.unbufferedMagnetLength / 200
-            self.testPoint.x = offset
-            b = femm.mo_getb(self.testPoint.x, self.testPoint.y)
+            b = femm.mo_getb(offset, self.testPoint.y)
             flux.append(b[1])
             offsets.append(offset)
 
         return max(flux)
+
+    def getFluxRiemanSum(self):
+        riemanSum = 0
+        interval = self.magnetLength / 200
+
+        for i in range(200):
+            x = self.testPoint.x + interval * i
+            pointFlux = femm.mo_getb(x, self.testPoint.y)[1]
+            riemanSum += .001 * (interval * pointFlux)
+        return abs(riemanSum)
 
     def getEMF(self, rpm):
         # EMF Calculation
@@ -213,6 +226,66 @@ class Alternator:
         frequency = self.numPoles * rpm / 120
         emf = 4.44 * frequency * fluxPerPole * self.coilsPerPhase * self.numWindings * self.windingFactor
         return self.numPhases * emf
+
+    def getEMFMultiplier(self):
+        # EMF Calculation
+        fluxPerPole = self.fluxDensity * self.magnetArea
+        frequency = self.numPoles / 120
+        emf = 4.44 * frequency * fluxPerPole * self.coilsPerPhase * self.numWindings * self.windingFactor
+        return self.numPhases * emf
+
+    def getEMFRieman(self, rpm):
+        riemanSum = self.getFluxRiemanSum()
+        fluxPerPole = riemanSum * .001 * (self.outerRadius - self.innerRadius)
+        frequency = self.numPoles * rpm / 120
+        emf = 4.44 * frequency * fluxPerPole * self.coilsPerPhase * self.numWindings * self.windingFactor
+        return self.numPhases * emf
+
+    def getEMFRiemanMultiplier(self):
+        riemanSum = self.getFluxRiemanSum()
+        fluxPerPole = riemanSum * .001 * (self.outerRadius - self.innerRadius)
+        frequency = self.numPoles / 120
+        emf = 4.44 * frequency * fluxPerPole * self.coilsPerPhase * self.numWindings * self.windingFactor
+        return self.numPhases * emf
+
+    def getEMFRound(self, rpm, radius):
+        magnetArea = pi*(.001 * radius)**2
+        fluxPerPole = self.fluxDensity * magnetArea
+        frequency = self.numPoles * rpm / 120
+        emf = 4.44 * frequency * fluxPerPole * self.coilsPerPhase * self.numWindings * self.windingFactor
+        return self.numPhases * emf
+
+    def getEMFRiemannRound(self, rpm):
+        radialRiemanSum = self.getFluxRiemanSum() / 2
+        fluxPerPole = radialRiemanSum * .001 * self.magnetLength / 2 * pi
+        frequency = self.numPoles * rpm / 120
+        emf = 4.44 * frequency * fluxPerPole * self.coilsPerPhase * self.numWindings * self.windingFactor
+        return self.numPhases * emf
+
+    def getEMFRiemannRoundMultiplier(self):
+        radialRiemanSum = self.getFluxRiemanSum() / 2
+        fluxPerPole = radialRiemanSum * .001 * self.magnetLength / 2 * pi
+        frequency = self.numPoles / 120
+        emf = 4.44 * frequency * fluxPerPole * self.coilsPerPhase * self.numWindings * self.windingFactor
+        return self.numPhases * emf
+
+    def testRieman(self):
+        riemanSum = 0
+        interval = self.magnetLength / 200
+        b = []
+        location = []
+
+        for i in range(200):
+            x = self.testPoint.x + interval * i
+            location.append(x)
+            pointFlux = femm.mo_getb(x, self.testPoint.y)[1]
+            b.append(pointFlux)
+            riemanSum += (interval * pointFlux)
+
+        print(max(b) * self.magnetArea)
+        print(.001**2 * riemanSum * (self.outerRadius - self.innerRadius))
+
+        return location, b
 
     def closeSimulation(self):
         femm.closefemm()
