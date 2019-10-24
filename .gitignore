@@ -4,3 +4,5 @@
 __pycache__/
 
 venv/
+/alternatorSim.fem
+/alternatorSim.ans
