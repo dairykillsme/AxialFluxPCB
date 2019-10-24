@@ -269,24 +269,6 @@ class Alternator:
         emf = 4.44 * frequency * fluxPerPole * self.coilsPerPhase * self.numWindings * self.windingFactor
         return self.numPhases * emf
 
-    def testRieman(self):
-        riemanSum = 0
-        interval = self.magnetLength / 200
-        b = []
-        location = []
-
-        for i in range(200):
-            x = self.testPoint.x + interval * i
-            location.append(x)
-            pointFlux = femm.mo_getb(x, self.testPoint.y)[1]
-            b.append(pointFlux)
-            riemanSum += (interval * pointFlux)
-
-        print(max(b) * self.magnetArea)
-        print(.001**2 * riemanSum * (self.outerRadius - self.innerRadius))
-
-        return location, b
-
     def closeSimulation(self):
         femm.closefemm()
 
@@ -295,12 +277,10 @@ class Alternator:
         strOut = ""
 
         numWindingsPerLayer = int(self.numWindings / self.numLayers)
-        statorRadialLength = (self.outerRadius - self.innerRadius)
         centralAngle = 360 / self.numStators
         absoluteAngleLeft = 90 + centralAngle / 2
         absoluteAngleRight = 90 - centralAngle / 2
         upperInteriorAngle = centralAngle / 2
-        lowerInteriorAngle = 180 - upperInteriorAngle
 
         # calculate base lengths and midline length
         # first calculate buffer between trapezoid coils, then project onto bases
@@ -336,9 +316,6 @@ class Alternator:
         # Set spacing variables
         viaTrace = Vector.polarInit(self.viaDiameter, absoluteAngleLeft + 90)
         exteriorViaSpacing = leftCoilBound.vectorize().scale(leftCoilBound.length() / (exteriorVias + 1))
-        interiorViaSpacing = Vector(0, 1).scale(
-            lowerCoilBound.length() - (2 * numWindingsPerLayer + 1) * (self.windingWidth + self.windingBuffer)) / (
-                                         interiorVias + 1)
         verticalWindingSpacing = Vector(0, self.windingBuffer)
         horizontalWindingSpacing = Vector(abs(self.windingBuffer / cos(radians(upperInteriorAngle))), 0)
 
@@ -352,7 +329,6 @@ class Alternator:
         # set initial start point at bottom via
         # & initialize end point variable
         startPoint = leftCoilBound.start + viaTrace + exteriorViaSpacing
-        endPoint = Vector(0, 0)
 
         # iterate through layers and windings
         coil = Coil()
