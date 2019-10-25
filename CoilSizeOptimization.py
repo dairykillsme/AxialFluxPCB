@@ -5,7 +5,7 @@ alt = Alternator()
 
 # INITIAL PARAMETER LIST
 # ONLY CHANGE THIS PART OF THE FILE
-targetEMF = 25
+targetEMF = 5
 targetRPM = 500
 # END PARAMETER LIST
 
@@ -53,7 +53,7 @@ while emf < targetEMF:
     emfs_riemann_round.append(emf_riemann_round)
     emfs_round.append(emf_round)
 
-alt.build(False)
+copperLenght = alt.build(False)
 
 #plt.plot(radius, emfs, 'r')
 plt.plot(radius, emfs_riemann, 'g')
@@ -78,3 +78,4 @@ plt.show()
 print(alt.outerRadius)
 print(alt.innerRadius)
 print(alt.numWindings)
+print(copperLenght)

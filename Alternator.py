@@ -116,8 +116,6 @@ class Alternator:
         self.alpha = self.coilPitch - self.polePitch
         self.windingFactor = cos(radians(self.alpha) / 2)
         self.coilsPerPhase = self.numStators / self.numPhases
-        # test point
-        # self.testpoint = Vector(0,0)
 
 
     def simulate(self):
@@ -273,9 +271,11 @@ class Alternator:
         femm.closefemm()
 
     def build(self, supressOutput):
-        self.__updateDimensions()
-        strOut = ""
+        self.__updateDimensions()  # make sure any dimensional changes are recalculated
+        length = 0  # variable for tracking coil length
+        strOut = ""  # variable for recording KiCAD file content
 
+        # calculate trapezoidal dimensions and other essential constants
         numWindingsPerLayer = int(self.numWindings / self.numLayers)
         centralAngle = 360 / self.numStators
         absoluteAngleLeft = 90 + centralAngle / 2
@@ -381,6 +381,7 @@ class Alternator:
                 endPoint = startPoint - viaTrace
                 windingLayer.addPoint(startPoint)
                 windingLayer.addPoint(endPoint)
+                length += (endPoint - startPoint).length()
                 for turn in range(0, numWindingsPerLayer):
                     for i in range(1, 5):
                         startPoint = endPoint
@@ -398,23 +399,27 @@ class Alternator:
                                         turn * verticalWindingSpacing)
                             if endPoint.x > windingLayer.points[-1].x:
                                 return False
-                        windingLayer.addPoint(endPoint)
+                        length += (endPoint - startPoint).length()  # add length of copper to new point to length
+                        windingLayer.addPoint(endPoint)  # add point to winding Layer for KiCAD output
                 # Add last turn and interior via
                 startPoint = endPoint
                 internalTopLeft = leftCoilBound.end + (1.5 * numWindingsPerLayer * horizontalWindingSpacing) - (
                             numWindingsPerLayer * verticalWindingSpacing)
                 internalLeftVector = internalTopLeft - startPoint
                 endPoint = startPoint + leftCoilBound.vectorize().scale(self.windingBuffer) + inum * internalLeftVector / (interiorVias + 1)
-                windingLayer.addPoint(endPoint)
+                length += (endPoint - startPoint).length()  # add length of copper to new point to length
+                windingLayer.addPoint(endPoint)  # add point to winding Layer for KiCAD output
                 startPoint = endPoint
                 endPoint = startPoint - viaTrace
-                windingLayer.addPoint(endPoint)
+                length += (endPoint - startPoint).length()  # add length of copper to new point to length
+                windingLayer.addPoint(endPoint)  # add point to winding Layer for KiCAD output
                 startPoint = endPoint
             # Inside-Out Coil
             else:
                 endPoint = startPoint + viaTrace
                 windingLayer.addPoint(startPoint)
                 windingLayer.addPoint(endPoint)
+                length += (endPoint - startPoint).length()  # add length of copper to new point to length
                 for turn in range(0, numWindingsPerLayer):
                     multiplier = numWindingsPerLayer - turn
                     for i in range(1, 5):
@@ -431,14 +436,17 @@ class Alternator:
                         else:
                             endPoint = leftCoilBound.start + ((multiplier - 1) * horizontalWindingSpacing) + (
                                         (multiplier - 1) * verticalWindingSpacing)
-                        windingLayer.addPoint(endPoint)
+                        length += (endPoint - startPoint).length()  # add length of copper to new point to length
+                        windingLayer.addPoint(endPoint)  # add point to winding Layer for KiCAD output
                 # Add last turn and exterior via
                 startPoint = endPoint
                 endPoint = startPoint + onum * leftCoilBound.vectorize() / (exteriorVias + 1)
-                windingLayer.addPoint(endPoint)
+                length += (endPoint - startPoint).length()  # add length of copper to new point to length
+                windingLayer.addPoint(endPoint)  # add point to winding Layer for KiCAD output
                 startPoint = endPoint
                 endPoint = startPoint + viaTrace
-                windingLayer.addPoint(endPoint)
+                length += (endPoint - startPoint).length()  # add length of copper to new point to length
+                windingLayer.addPoint(endPoint)  # add point to winding Layer for KiCAD output
                 startPoint = endPoint
 
             coil.addWinding(windingLayer)
@@ -473,4 +481,4 @@ class Alternator:
         if not supressOutput:
             print(strOut)
 
-        return True
+        return length
