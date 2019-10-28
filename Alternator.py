@@ -77,13 +77,16 @@ class Alternator:
         self.windingBuffer = 0.6  # Width of trace +  buffer in mm
         self.pcbThickness = 1  # Thickness of PCB in mm
         self.windingType = '0.125mm'
+        # winding resistance
+        self.windingWeight = 2 # trace weight in oz
+        self.windingLength = 0 # length of winding
         # rotor dimensions
         self.rotorThickness = 2  # Thickness of rotor in mm
         self.numPoles = 12  # number of poles on rotor
         self.poleSpacing = 1  # spacing of poles in mm
         self.magnetType = 'NdFeB 52 MGOe'
         # END PARAMETER LIST
-        self.testPoint = Vector(0,0)
+        self.testPoint = Vector(0, 0)
         self.__updateDimensions()
 
 
@@ -481,4 +484,12 @@ class Alternator:
         if not supressOutput:
             print(strOut)
 
-        return length
+        self.windingLength = length
+        return True
+
+    def CalcResistance(self):
+        resistivity = 1.7 * 1e-6 # Resistivity of copper in Ohms/cm
+        lamdaCopper = 3.9 * 1e-3 # Lambda of copper in Ohms / Ohm / cm
+        height = 1.37 * self.windingWeight * 0.00254 # weight -> mils -> cm
+
+        return resistivity * (self.windingLength * .1) / (height * self.windingWidth * .1) * (1 - 2*lamdaCopper)
